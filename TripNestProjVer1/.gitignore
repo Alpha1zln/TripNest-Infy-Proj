@@ -1,0 +1,75 @@
+# =========================================================
+# TripNest - Global .gitignore
+# M1 - M4
+# =========================================================
+
+# =========================
+# OS files
+# =========================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================
+# IDEs
+# =========================
+
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# =========================
+# Frontend - React / Vite
+# =========================
+
+code_Frontend/node_modules/
+code_Frontend/dist/
+code_Frontend/dist-ssr/
+
+# Frontend environment / secrets
+code_Frontend/.env
+code_Frontend/.env.local
+code_Frontend/.env.*.local
+
+# Frontend logs
+code_Frontend/npm-debug.log*
+code_Frontend/yarn-debug.log*
+code_Frontend/yarn-error.log*
+code_Frontend/pnpm-debug.log*
+code_Frontend/lerna-debug.log*
+
+# =========================
+# Backend - Spring Boot / Maven
+# =========================
+
+code_Backend/target/
+code_Backend/*.class
+
+# Keep Maven wrapper files
+# Do NOT ignore code_Backend/.mvn/
+
+# Backend environment / secrets
+code_Backend/.env
+code_Backend/.env.*
+code_Backend/application-local.properties
+
+# Backend logs
+code_Backend/*.log
+
+# =========================
+# General logs
+# =========================
+
+*.log
+
+# =========================
+# Temporary files
+# =========================
+
+*.tmp
+*.temp
+*.swp
+*.swo
