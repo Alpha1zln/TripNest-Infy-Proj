@@ -483,6 +483,4 @@ M2 frontend development will begin with Trip Management UI and progressively int
 
 This document serves as the **initial M2 frontend plan** and will be converted into the final M2 frontend revision/documentation README after milestone completion.
 
-
----------------
-
+------------------------
