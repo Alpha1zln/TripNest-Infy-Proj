@@ -2339,6 +2339,1266 @@ P2 establishes the day-wise itinerary foundation for the next module: **M2 P3 �
 # M2 P3 — Activity Backend README
 
 
+# TripNest — M2 P3 Activity Backend README
+
+**Project:** TripNest — Travel Planning & Trip Management Platform  
+**Module:** M2 — Core Trip Planning  
+**Part:** P3 — Activity  
+**Status:** COMPLETE  
+**Technology:** Spring Boot 4.1.1, Java 21, PostgreSQL 17.11, Maven  
+**Backend folder:** `code_Backend`
+
+---
+
+## 1. Purpose of P3
+
+M2 P3 adds **Activity management** to the TripNest itinerary.
+
+An Activity represents an individual thing a traveler plans to do during a particular itinerary day.
+
+Examples:
+
+- Visit Eiffel Tower
+- Hotel check-in
+- City tour
+- Beach visit
+- Dinner reservation
+- Museum visit
+- Shopping
+
+The most important design decision is:
+
+> **Activity belongs to an `ItineraryDay`, not directly to a `Trip`.**
+
+The hierarchy is:
+
+```text
+Trip
+ └── Itinerary
+      └── ItineraryDay
+           ├── Activity
+           ├── Activity
+           └── Activity
+```
+
+This keeps the travel plan naturally organized day by day.
+
+---
+
+# 2. P3 Scope
+
+The Activity module provides the basic CRUD lifecycle:
+
+- Create Activity
+- Get Activities
+- Get one Activity
+- Update Activity
+- Delete Activity
+
+An Activity contains:
+
+| Field | Purpose |
+|---|---|
+| `id` | Unique activity identifier |
+| `title` | Activity name/title |
+| `description` | Additional information |
+| `category` | Simple UI/category metadata |
+| `startTime` | Planned start time |
+| `endTime` | Planned end time |
+| `location` | Activity location |
+| `bookingDetails` | Free-text booking/reservation information |
+| `checklist` | Simple multiline checklist |
+| `itineraryDay` | Parent itinerary day |
+
+---
+
+# 3. Why Activity is linked to ItineraryDay
+
+A Trip contains multiple itinerary days, and every day can contain multiple activities.
+
+Example:
+
+```text
+Paris Trip
+
+Day 1
+ ├── Airport pickup
+ ├── Hotel check-in
+ └── Eiffel Tower visit
+
+Day 2
+ ├── Louvre Museum
+ ├── Lunch
+ └── Seine cruise
+```
+
+If Activity were connected directly to Trip, we would lose the information about **which day** the activity belongs to.
+
+Therefore:
+
+```text
+Trip
+  ↓
+ItineraryDay
+  ↓
+Activity
+```
+
+This also makes the frontend easier to build because activities can be rendered directly under each day.
+
+---
+
+# 4. Activity Entity
+
+Conceptually the entity contains:
+
+```text
+Activity
+---------
+id
+title
+description
+category
+startTime
+endTime
+location
+bookingDetails
+checklist
+itineraryDay
+```
+
+The important relationship is:
+
+```text
+Activity ---> ItineraryDay
+```
+
+Multiple activities can belong to one itinerary day.
+
+Therefore, from the Activity side:
+
+```java
+@ManyToOne
+private ItineraryDay itineraryDay;
+```
+
+---
+
+# 5. Field Design Decisions
+
+## 5.1 `title`
+
+The main human-readable name of the activity.
+
+Examples:
+
+```text
+Visit Eiffel Tower
+Dinner at Restaurant
+Airport Pickup
+```
+
+---
+
+## 5.2 `description`
+
+Additional information about the activity.
+
+Example:
+
+```text
+Visit the Eiffel Tower and explore the surrounding area.
+```
+
+The distinction is:
+
+```text
+title       → What is the activity?
+description → What should the traveler know about it?
+```
+
+---
+
+## 5.3 `category`
+
+`category` is currently **simple UI metadata**.
+
+Possible values:
+
+```text
+Sightseeing
+Food
+Transport
+Shopping
+Entertainment
+Hotel
+Other
+```
+
+No separate Category database table is required for P3.
+
+This avoids unnecessary complexity while still allowing the frontend to categorize activities.
+
+Future versions can introduce:
+
+- category enums
+- predefined categories
+- category filtering
+- category-specific icons
+- database-backed categories
+
+---
+
+## 5.4 `startTime` and `endTime`
+
+These represent the planned activity timing.
+
+Example:
+
+```text
+startTime = 10:00
+endTime   = 12:00
+```
+
+This enables a daily schedule such as:
+
+```text
+10:00 ───────── 12:00
+       Museum Visit
+```
+
+Different activities on the same day can have different timings.
+
+---
+
+## 5.5 `location`
+
+Stores where the activity happens.
+
+Examples:
+
+```text
+Eiffel Tower
+Louvre Museum
+Hotel ABC
+Delhi Airport
+```
+
+At P3 this remains simple text.
+
+Future enhancements can include:
+
+- coordinates
+- Google Maps integration
+- map URLs
+- place IDs
+- route planning
+
+---
+
+## 5.6 `bookingDetails`
+
+This is intentionally **free text** in P3.
+
+Example:
+
+```text
+Booking ID: ABC123
+Confirmed for 2 people
+Check-in at 6:30 PM
+```
+
+We do not create a separate Booking entity yet.
+
+Reason:
+
+> P3 focuses on itinerary activity management, not a complete booking system.
+
+---
+
+## 5.7 `checklist`
+
+Currently implemented as simple multiline text.
+
+Example:
+
+```text
+Carry passport
+Carry tickets
+Reach venue 15 minutes early
+Carry water
+```
+
+A future version could introduce:
+
+```text
+Activity
+  |
+  +-- ChecklistItem
+  +-- ChecklistItem
+  +-- ChecklistItem
+```
+
+For P3, simple text keeps the implementation small and understandable.
+
+---
+
+# 6. Relationship with ItineraryDay
+
+The Activity entity references its parent `ItineraryDay`.
+
+Conceptually:
+
+```java
+@ManyToOne
+private ItineraryDay itineraryDay;
+```
+
+Therefore:
+
+```text
+Activity A ──┐
+Activity B ──┼──> ItineraryDay
+Activity C ──┘
+```
+
+One itinerary day can contain many activities.
+
+---
+
+# 7. Backend Layer Structure
+
+P3 follows the existing TripNest layered architecture:
+
+```text
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Database
+```
+
+For Activity:
+
+```text
+ActivityController
+       ↓
+ActivityService
+       ↓
+ActivityRepository
+       ↓
+PostgreSQL
+```
+
+This separation keeps responsibilities clear.
+
+---
+
+# 8. Repository Layer
+
+`ActivityRepository` handles database persistence.
+
+Conceptually:
+
+```text
+ActivityRepository
+       |
+       +-- save()
+       +-- findById()
+       +-- findAll()
+       +-- delete()
+```
+
+Spring Data JPA provides the standard CRUD functionality.
+
+The repository should remain focused on persistence.
+
+Business rules belong in the service layer.
+
+---
+
+# 9. Service Layer
+
+The Activity service contains application/business logic.
+
+Typical responsibilities:
+
+1. Find the parent `ItineraryDay`
+2. Verify that the day exists
+3. Create the Activity
+4. Associate Activity with the day
+5. Save the Activity
+6. Retrieve Activity data
+7. Update Activity data
+8. Delete Activity data
+9. Apply validation and authorization/ownership rules
+
+The controller should not contain all of this logic.
+
+---
+
+# 10. Controller Layer
+
+The Activity controller exposes REST APIs.
+
+Its responsibility is mainly:
+
+```text
+HTTP request
+     ↓
+Controller
+     ↓
+Service
+     ↓
+HTTP response
+```
+
+The controller should delegate business logic to the service rather than directly performing database operations.
+
+---
+
+# 11. API Design
+
+Activity resources are logically nested under an itinerary day.
+
+Conceptual resource:
+
+```text
+/api/itinerary-days/{itineraryDayId}/activities
+```
+
+Typical operations:
+
+| HTTP Method | Operation |
+|---|---|
+| `POST` | Create Activity |
+| `GET` | Get Activities |
+| `GET /{activityId}` | Get one Activity |
+| `PUT /{activityId}` | Update Activity |
+| `DELETE /{activityId}` | Delete Activity |
+
+**Note:** The exact endpoint paths should always be taken from the implemented `ActivityController` if they differ from this conceptual structure.
+
+---
+
+# 12. Create Activity Flow
+
+```text
+Frontend
+   |
+   | POST activity data
+   v
+ActivityController
+   |
+   v
+ActivityService
+   |
+   | Find ItineraryDay
+   v
+ItineraryDayRepository
+   |
+   v
+Create Activity
+   |
+   | Attach ItineraryDay
+   v
+ActivityRepository
+   |
+   v
+PostgreSQL
+```
+
+The important rule is:
+
+> An Activity should not be created against a non-existent ItineraryDay.
+
+---
+
+# 13. Update Activity Flow
+
+```text
+Request
+  ↓
+ActivityController
+  ↓
+ActivityService
+  ↓
+Find existing Activity
+  ↓
+Validate / authorize
+  ↓
+Update fields
+  ↓
+Save
+  ↓
+Response
+```
+
+The service should first verify that the Activity exists.
+
+A missing Activity should result in a not-found response rather than silently creating a new record.
+
+---
+
+# 14. Delete Activity Flow
+
+```text
+DELETE request
+      ↓
+ActivityController
+      ↓
+ActivityService
+      ↓
+Find / validate Activity
+      ↓
+Delete Activity
+      ↓
+Success response
+```
+
+Deletion is handled through the service/repository layer.
+
+---
+
+# 15. Validation
+
+P3 validation remains practical and focused.
+
+Important considerations:
+
+- Activity must belong to an existing `ItineraryDay`
+- Required Activity information should not be accepted as invalid empty data
+- Time values should use the correct format
+- Update should target an existing Activity
+
+A future business rule could validate:
+
+```text
+endTime > startTime
+```
+
+More advanced date/time validation can be added later without changing the basic P3 architecture.
+
+---
+
+# 16. Authentication and Authorization
+
+TripNest already uses JWT-based authentication with Spring Security.
+
+Therefore:
+
+```text
+Client
+  ↓
+JWT
+  ↓
+Spring Security
+  ↓
+Protected Activity API
+```
+
+Two concepts must be distinguished:
+
+### Authentication
+
+> Who is making the request?
+
+JWT helps answer this.
+
+### Authorization
+
+> Is this user allowed to modify this Activity?
+
+The ownership chain can ultimately be checked through:
+
+```text
+User
+ ↓
+Trip
+ ↓
+Itinerary
+ ↓
+ItineraryDay
+ ↓
+Activity
+```
+
+This is important because simply having a valid JWT should not automatically mean a user can modify another user's travel data.
+
+---
+
+# 17. Error Handling
+
+Important error cases include:
+
+## ItineraryDay not found
+
+The requested parent day does not exist.
+
+Expected behavior:
+
+```text
+404 Not Found
+```
+
+## Activity not found
+
+The requested Activity does not exist.
+
+Expected behavior:
+
+```text
+404 Not Found
+```
+
+## Invalid request
+
+Invalid input should produce an appropriate client-error response instead of a database failure.
+
+The exact response structure should remain consistent with the existing TripNest backend error-handling conventions.
+
+---
+
+# 18. Database Model
+
+Conceptually, PostgreSQL contains an Activity table similar to:
+
+```text
+activity
+------------------------------------------------
+id
+title
+description
+category
+start_time
+end_time
+location
+booking_details
+checklist
+itinerary_day_id
+```
+
+The important foreign key is:
+
+```text
+activity.itinerary_day_id
+             |
+             v
+       itinerary_day.id
+```
+
+This represents the parent-child relationship at database level.
+
+---
+
+# 19. M2 Hierarchy After P3
+
+After P1, P2 and P3:
+
+```text
+User
+ |
+ +---- Trip
+        |
+        +---- Itinerary
+               |
+               +---- ItineraryDay
+                       |
+                       +---- Activity
+                       +---- Activity
+                       +---- Activity
+```
+
+Example:
+
+```text
+Paris Trip
+│
+├── Day 1
+│   ├── Airport Pickup
+│   ├── Hotel Check-in
+│   └── Eiffel Tower
+│
+├── Day 2
+│   ├── Louvre Museum
+│   ├── Lunch
+│   └── Seine Cruise
+│
+└── Day 3
+    ├── Shopping
+    └── Airport Transfer
+```
+
+This gives TripNest a practical day-wise travel planning structure.
+
+---
+
+# 20. Testing Checklist
+
+## Create
+
+Test:
+
+```text
+POST Activity
+```
+
+Verify:
+
+- Valid JWT is accepted
+- Valid ItineraryDay is accepted
+- Activity is created
+- Activity is associated with the correct day
+- Database record is created
+
+## Read all
+
+Test:
+
+```text
+GET Activities for an ItineraryDay
+```
+
+Verify:
+
+- Correct activities are returned
+- Returned activities belong to the requested day
+
+## Read one
+
+Test:
+
+```text
+GET Activity/{id}
+```
+
+Verify:
+
+- Existing Activity is returned
+- Non-existing Activity gives not-found response
+
+## Update
+
+Test:
+
+```text
+PUT Activity/{id}
+```
+
+Verify:
+
+- Existing fields are updated
+- Activity remains associated correctly
+- Unauthorized access is rejected
+
+## Delete
+
+Test:
+
+```text
+DELETE Activity/{id}
+```
+
+Verify:
+
+- Activity is deleted
+- Subsequent GET cannot find it
+
+-----
+
+---------------------------------------------
+
+## Postman apis testing output
+
+
+**
+* POST
+http://localhost:8080/api/activities
+
+Headers:
+
+Authorization: Bearer <your JWT>
+Content-Type: application/json
+
+Body → raw → JSON:
+```
+{
+  "title": "Visit Baga Beach",
+  "description": "Spend the afternoon at Baga Beach.",
+  "category": "SIGHTSEEING",
+  "startTime": "10:00",
+  "endTime": "13:00",
+  "location": "Baga Beach, Goa",
+  "bookingDetails": "Water sports booking at 12 PM",
+  "checklist": "Carry sunscreen\nCarry sunglasses\nCarry swimming clothes",
+  "itineraryDayId": 1
+}
+```
+
+Expected response:
+```
+{
+  "id": 1,
+  "title": "Visit Baga Beach",
+  "description": "Spend the afternoon at Baga Beach.",
+  "category": "SIGHTSEEING",
+  "startTime": "10:00:00",
+  "endTime": "13:00:00",
+  "location": "Baga Beach, Goa",
+  "bookingDetails": "Water sports booking at 12 PM",
+  "checklist": "Carry sunscreen\nCarry sunglasses\nCarry swimming clothes",
+  "itineraryDayId": 1
+}
+```
+with HTTP status:
+201 Created
+
+
+**
+### Check user, trip, itinerary details in 1 table, using sql
+```
+SELECT
+    u.id AS user_id,
+    u.email,
+    t.id AS trip_id,
+    t.title AS trip_title,
+    i.id AS itinerary_id,
+    iday.id AS itinerary_day_id,
+    iday.day_number
+FROM users u
+JOIN trips t
+    ON t.user_id = u.id
+JOIN itineraries i
+    ON i.trip_id = t.id
+JOIN itinerary_days iday
+    ON iday.itinerary_id = i.id
+ORDER BY u.id, t.id, i.id, iday.day_number;
+```
+
+```
+ user_id |      email      | trip_id |       trip_title        | itinerary_id | itinerary_day_id | day_number
+---------+-----------------+---------+-------------------------+--------------+------------------+------------
+       2 | aln@example.com |       1 | Manali Trip             |            1 |                1 |          1
+       2 | aln@example.com |       1 | Manali Trip             |            1 |                3 |          2
+       2 | aln@example.com |       1 | Manali Trip             |            1 |                2 |          4
+       2 | aln@example.com |       1 | Manali Trip             |            1 |                4 |          8
+       2 | aln@example.com |       2 | Manali Hillstation Trip |            2 |                6 |          2
+       2 | aln@example.com |       3 | Andmn Trip              |            3 |                7 |          1
+```
+
+**
+### GET-Activity-by-day api
+
+GET 
+http://localhost:8080/api/activities/day/1
+
+with your JWT token.
+
+op>  
+```
+[{"id":1,"title":"Visit Solang Valley","description":"Explore Solang Valley and enjoy the mountain views.","category":"SIGHTSEEING","startTime":"10:00:00","endTime":"13:00:00","location":"Solang Valley, Manali","bookingDetails":"Cab booked for 9:30 AM","checklist":"Carry jacket\nCarry sunglasses\nCarry water bottle","itineraryDayId":1}]
+```
+
+
+
+**
+### GET-Activity-by-Id api
+
+GET 
+http://localhost:8080/api/activities/1
+
+with your JWT token.
+
+op>
+```
+{"id":1,"title":"Visit Solang Valley","description":"Explore Solang Valley and enjoy the mountain views.","category":"SIGHTSEEING","startTime":"10:00:00","endTime":"13:00:00","location":"Solang Valley, Manali","bookingDetails":"Cab booked for 9:30 AM","checklist":"Carry jacket\nCarry sunglasses\nCarry water bottle","itineraryDayId":1}
+```
+
+
+**
+### UPDATE ACTIVITY API 
+
+Test the PUT first. 
+Use your existing Activity:
+Activity ID = 1
+
+PUT 
+http://localhost:8080/api/activities/1
+
+Body:
+```
+{
+  "title": "Visit Solang Valley and Skiing",
+  "description": "Explore Solang Valley and enjoy skiing.",
+  "category": "SIGHTSEEING",
+  "startTime": "10:00",
+  "endTime": "14:00",
+  "location": "Solang Valley, Manali",
+  "bookingDetails": "Ski equipment booking at 11 AM",
+  "checklist": "Carry jacket\nCarry sunglasses\nCarry gloves",
+  "itineraryDayId": 1
+}
+```
+Expected:
+200 OK
+
+op> same as abv data
+
+
+
+**
+select * from activities;
+```
+tripnest_db=# SELECT * from activities;
+ id |        booking_details         |  category   |       checklist       |               description               | end_time |       location        | start_time |             title              | itinerary_day_id
+----+--------------------------------+-------------+-----------------------+-----------------------------------------+----------+-----------------------+------------+--------------------------------+------------------
+  1 | Ski equipment booking at 11 AM | SIGHTSEEING | Carry jacket         +| Explore Solang Valley and enjoy skiing. | 14:00:00 | Solang Valley, Manali | 10:00:00   | Visit Solang Valley and Skiing |                1
+    |                                |             | Carry sunglasses     +|                                         |          |                       |            |                                |
+    |                                |             | Carry gloves          |                                         |          |                       |            |                                |
+  2 | bus booked for 10:30 AM        | SIGHTSEEING | Carry extra clother  +| Explore views.                          | 17:00:00 | rhtng, India          | 13:00:00   | Visit rhtng                    |                2
+    |                                |             | Carry basic medicines+|                                         |          |                       |            |                                |
+    |                                |             | Carry water bottle    |                                         |          |                       |            |                                |
+  3 | bus booked for 10:30 AM        | SIGHTSEEING | Carry extra clother  +| Explore views.                          | 17:00:00 | jlkjljl, India        | 13:00:00   | Visit njljljl                  |                3
+    |                                |             | Carry basic medicines+|                                         |          |                       |            |                                |
+    |                                |             | Carry water bottle    |                                         |          |                       |            |                                |
+(3 rows)
+```
+
+
+**
+### Del activity Test
+
+
+Since Activity 1 is our test activity:
+
+DELETE 
+http://localhost:8080/api/activities/3
+
+Use JWT.
+
+Expected:
+op> 204 No Content
+
+
+*Then, verify:
+GET 
+http://localhost:8080/api/activities/3
+
+It gives:
+500 / Activity not found
+(or your current exception handling's equivalent).
+
+
+*Also check:
+GET 
+http://localhost:8080/api/activities/day/3
+op> []
+
+Status- 200 OK.
+The deleted activity should no longer appear.
+
+
+*select * from activities;
+only 2 rows now, 1 deltd.
+
+
+
+-------------------------------------------
+-------------------------------------------
+
+
+
+----
+
+# 21. Important P3 Design Decisions
+
+### Decision 1 — Activity belongs to ItineraryDay
+
+Chosen because an Activity is part of a particular day's plan.
+
+```text
+Trip → ItineraryDay → Activity
+```
+
+### Decision 2 — Category is simple metadata
+
+No separate Category table for P3.
+
+### Decision 3 — Booking details are free text
+
+No separate Booking module yet.
+
+### Decision 4 — Checklist is simple multiline text
+
+No separate ChecklistItem entity yet.
+
+### Decision 5 — Location is text
+
+Maps/coordinates can be added later.
+
+### Decision 6 — Keep P3 focused
+
+P3 establishes the core Activity CRUD foundation without prematurely implementing advanced travel-management features.
+
+---
+
+# 22. Why P3 is Useful for an SDE Interview
+
+The module demonstrates:
+
+### Entity relationships
+
+```text
+@ManyToOne
+```
+
+### REST API design
+
+```text
+POST
+GET
+PUT
+DELETE
+```
+
+### Layered architecture
+
+```text
+Controller
+Service
+Repository
+Entity
+Database
+```
+
+### Authentication
+
+```text
+JWT + Spring Security
+```
+
+### Authorization
+
+Ownership can be traced through the domain hierarchy.
+
+### Database relationships
+
+```text
+Foreign Key
+```
+
+### Business validation
+
+The service layer validates parent resources and requested resources.
+
+---
+
+# 23. Interview Explanation
+
+A concise interview-ready explanation:
+
+> "In TripNest, an Activity represents a specific task or event planned for a particular itinerary day. I modeled Activity as a child of ItineraryDay using a many-to-one relationship because one day can contain multiple activities. I exposed REST APIs for creating, reading, updating and deleting activities. The controller handles HTTP requests, the service layer contains validation and business logic, and the repository handles persistence using Spring Data JPA. Activity data is stored in PostgreSQL with a foreign key to the itinerary day. Authentication is handled through the existing JWT-based Spring Security setup."
+
+---
+
+# 24. Layman Explanation
+
+Think of TripNest as a physical travel notebook.
+
+```text
+Notebook = Trip
+
+Page 1 = Day 1
+Page 2 = Day 2
+Page 3 = Day 3
+```
+
+On each page we write things to do.
+
+```text
+Day 1
+  - Visit Eiffel Tower
+  - Dinner
+  - Hotel check-in
+```
+
+Those individual things are **Activities**.
+
+Therefore:
+
+```text
+Trip
+  ↓
+Day
+  ↓
+Things to do
+```
+
+That is why Activity is connected to `ItineraryDay`.
+
+---
+
+# 25. What P3 Does NOT Do Yet
+
+The following are intentionally outside current P3 scope:
+
+- Google Maps integration
+- GPS coordinates
+- Real booking-provider integration
+- Payment processing
+- Calendar synchronization
+- Weather integration
+- AI-generated activities
+- Separate checklist-item database
+- Advanced category management
+- Activity reminders/notifications
+- Drag-and-drop scheduling
+
+The purpose is to keep the core implementation stable before adding advanced features.
+
+---
+
+# 26. Possible Future Enhancements
+
+Activity can later be extended with:
+
+```text
+Activity
+ ├── coordinates
+ ├── mapUrl
+ ├── booking
+ ├── checklistItems
+ ├── reminders
+ ├── attachments
+ ├── estimatedCost
+ ├── currency
+ └── status
+```
+
+Potential future features:
+
+- Activity category filters
+- Drag-and-drop itinerary planning
+- Map-based activities
+- AI activity recommendations
+- Automatic schedule optimization
+- Weather-aware suggestions
+- Activity reminders
+- Booking integration
+
+These should remain future enhancements rather than being mixed into the basic P3 implementation.
+
+---
+
+# 27. P3 Completion Summary
+
+M2 P3 establishes the Activity layer of TripNest.
+
+The core hierarchy is:
+
+```text
+Trip
+  ↓
+Itinerary
+  ↓
+ItineraryDay
+  ↓
+Activity
+```
+
+Activity captures:
+
+```text
+What?
+    title
+
+Details?
+    description
+
+Type?
+    category
+
+When?
+    startTime / endTime
+
+Where?
+    location
+
+Booking information?
+    bookingDetails
+
+Things to remember?
+    checklist
+```
+
+This gives the frontend the backend foundation needed for a day-wise itinerary/activity experience.
+
+---
+
+# 28. Next M2 Work
+
+P3 is complete.
+
+Next planned part:
+
+```text
+P4 — Destination
+```
+
+Destination APIs can later support:
+
+- Destination lookup
+- Country-wise search
+- Type-wise filtering
+- Beach
+- Hill station
+- Temple
+- City
+- Other destination categories
+
+The recommended approach is to first implement the basic Destination API and then add search/filter features.
+
+---
+
+# 29. Learning Notes for Revision
+
+While revising P3, remember:
+
+1. **Activity is a child of ItineraryDay.**
+2. One `ItineraryDay` can have many Activities.
+3. Therefore Activity → ItineraryDay is `@ManyToOne`.
+4. The foreign key is stored on the Activity side.
+5. Controller handles HTTP.
+6. Service handles business logic.
+7. Repository handles persistence.
+8. JWT protects the API.
+9. Authentication and authorization are different concepts.
+10. `category`, `bookingDetails`, and `checklist` were deliberately kept simple to avoid overengineering P3.
+11. Future features should be added only when they provide real project value.
+
+---
+
+# 30. P3 Status
+
+**M2 P3 Activity: COMPLETE**
+
+```text
+M2
+├── P1 Trip Management      ✅
+├── P2 Itinerary            ✅
+├── P3 Activity             ✅
+└── P4 Destination          ⏳
+```
+
+This document is intended to be the **source of truth for M2 P3 Activity** and appended to the bottom of the M2 P2 README when maintaining the combined M2 backend documentation.
+
+
+-------------------------------------
+
+
+
 
 
 
