@@ -192,7 +192,7 @@ Trip
 
 ---
 
-# 🚀 Future Scope
+# 🚀 Adv Scope
 
 ## Milestone 5 — GenAI Travel Copilot
 
@@ -203,6 +203,11 @@ Trip
 
 * Introduce **Apache Kafka** for asynchronous event-driven communication and **Redis** for distributed caching.
 * Progress toward microservices decomposition for scalability, fault isolation, and independent service deployment.
+
+
+## Milestone 7 — TripNest AI Agent with Tool Calling
+* Build a Spring AI agent that plans trips using secure backend tools.
+* Connect destination search, budget calculation, and itinerary generation services.
 
 ---
 
