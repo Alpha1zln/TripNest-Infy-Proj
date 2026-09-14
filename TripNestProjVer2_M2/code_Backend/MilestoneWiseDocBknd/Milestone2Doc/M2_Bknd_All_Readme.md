@@ -3616,6 +3616,1041 @@ This document is intended to be the **source of truth for M2 P3 Activity** and a
 # M2 P4 — Destination  Backend README
 
 
+# M2 P4 — Destination Management
+
+## 1. Overview
+
+M2 P4 implements the **Destination Management** module of TripNest.
+
+The mentor requirement for this module includes destination information such as:
+
+* Destination details
+* Attractions
+* Travel guides
+* Relevant travel information
+
+The first phase of P4 establishes the complete **Destination CRUD foundation** using Spring Boot, Spring Data JPA, PostgreSQL, DTOs and REST APIs.
+
+The professional/business functionality such as **Attractions and Travel Guides** will be implemented in the next phase.
+
+---
+
+# 2. Technology Used
+
+* Java 21
+* Spring Boot 4.1.1
+* Spring Data JPA
+* Hibernate / JPA
+* PostgreSQL 17.11
+* Maven 3.9.16
+* Lombok
+* REST APIs
+* Postman
+* JWT Bearer Authentication
+
+---
+
+# 3. Destination Data Model
+
+The initial Destination entity contains:
+
+| Field               | Type     | Purpose                                     |
+| ------------------- | -------- | ------------------------------------------- |
+| `id`                | `Long`   | Primary key                                 |
+| `name`              | `String` | Destination name                            |
+| `country`           | `String` | Country                                     |
+| `description`       | `String` | Description of destination                  |
+| `type`              | `String` | Type such as Beach, Hill Station, Religious |
+| `bestTimeToVisit`   | `String` | Recommended visiting period                 |
+| `travelInformation` | `String` | General travel information                  |
+
+Example:
+
+```text
+Destination
+│
+├── id
+├── name
+├── country
+├── description
+├── type
+├── bestTimeToVisit
+└── travelInformation
+```
+
+For the initial implementation, `type` is kept as a `String` instead of an enum.
+
+This keeps the first CRUD implementation simple. A controlled enum can be considered later if the application requires fixed destination categories.
+
+---
+
+# 4. Backend Folder Structure
+
+The existing TripNest backend convention is followed.
+
+The project uses subfolders inside `dto`, while `entity`, `repository`, `service` and `controller` contain their Java files directly.
+
+```text
+com.tripnest.backend/
+│
+├── config/
+│   ├── JwtConfig.java
+│   └── SecurityConfig.java
+│
+├── controller/
+│   ├── AuthController.java
+│   ├── TestController.java
+│   └── DestinationController.java
+│
+├── dto/
+│   ├── activity/
+│   ├── trip/
+│   ├── itinerary/
+│   │
+│   └── destination/
+│       ├── DestinationRequestDTO.java
+│       └── DestinationResponseDTO.java
+│
+├── entity/
+│   ├── User.java
+│   ├── Role.java
+│   ├── UserRole.java
+│   └── Destination.java
+│
+├── repository/
+│   ├── UserRepository.java
+│   ├── RoleRepository.java
+│   ├── UserRoleRepository.java
+│   └── DestinationRepository.java
+│
+├── service/
+│   ├── AuthService.java
+│   ├── JwtService.java
+│   └── DestinationService.java
+│
+└── BackendApplication.java
+```
+
+---
+
+# 5. Destination Entity
+
+File:
+
+```text
+entity/Destination.java
+```
+
+The class is marked with `@Entity`, so JPA/Hibernate maps it to a PostgreSQL table.
+
+Important annotations:
+
+```java
+@Entity
+@Getter
+@Setter
+public class Destination {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String country;
+    private String description;
+    private String type;
+    private String bestTimeToVisit;
+    private String travelInformation;
+}
+```
+
+### Important concepts
+
+### `@Entity`
+
+Tells JPA:
+
+> Treat this Java class as a database entity.
+
+Conceptually:
+
+```text
+Destination.java  →  destination table
+```
+
+### `@Id`
+
+Marks `id` as the primary key.
+
+### `@GeneratedValue(strategy = GenerationType.IDENTITY)`
+
+Allows the database to generate the ID when a new Destination is inserted.
+
+Therefore the client does not need to send an ID while creating a destination.
+
+---
+
+# 6. Destination Repository
+
+File:
+
+```text
+repository/DestinationRepository.java
+```
+
+```java
+package com.tripnest.backend.repository;
+
+import com.tripnest.backend.entity.Destination;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface DestinationRepository
+        extends JpaRepository<Destination, Long> {
+
+}
+```
+
+`JpaRepository<Destination, Long>` means:
+
+```text
+Destination → Entity being managed
+Long        → Type of its primary key
+```
+
+Spring Data JPA automatically provides common operations such as:
+
+```text
+save()
+findAll()
+findById()
+deleteById()
+existsById()
+count()
+```
+
+Therefore, no SQL needs to be manually written for basic CRUD operations.
+
+---
+
+# 7. Dependency Injection
+
+`DestinationService` receives `DestinationRepository` through its constructor.
+
+```java
+private final DestinationRepository destinationRepository;
+
+public DestinationService(
+        DestinationRepository destinationRepository) {
+
+    this.destinationRepository = destinationRepository;
+}
+```
+
+This is **constructor injection**.
+
+The simple idea is:
+
+```text
+DestinationService needs Repository
+                ↓
+Spring provides Repository
+                ↓
+Service can use it
+```
+
+Constructor injection is preferred because:
+
+* The dependency is clearly visible.
+* Required dependencies can be declared `final`.
+* The class cannot be created without its required dependency.
+* Unit testing is easier.
+
+### Why not field `@Autowired`?
+
+This would also work:
+
+```java
+@Autowired
+private DestinationRepository destinationRepository;
+```
+
+However, constructor injection is generally preferred.
+
+With a single constructor, modern Spring automatically recognizes it for dependency injection, so `@Autowired` is not required.
+
+### Three common DI types
+
+```text
+1. Constructor Injection  ← used in TripNest P4
+2. Setter Injection
+3. Field Injection
+```
+
+---
+
+# 8. DTO Design
+
+Destination uses separate Request and Response DTOs.
+
+Folder:
+
+```text
+dto/destination/
+```
+
+Files:
+
+```text
+DestinationRequestDTO.java
+DestinationResponseDTO.java
+```
+
+This keeps the API model separate from the database Entity.
+
+---
+
+## 8.1 DestinationRequestDTO
+
+File:
+
+```text
+dto/destination/DestinationRequestDTO.java
+```
+
+```java
+package com.tripnest.backend.dto.destination;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class DestinationRequestDTO {
+
+    private String name;
+    private String country;
+    private String description;
+    private String type;
+    private String bestTimeToVisit;
+    private String travelInformation;
+}
+```
+
+### Purpose
+
+Request DTO represents data sent:
+
+```text
+Client → Backend
+```
+
+For example:
+
+```json
+{
+  "name": "Varanasi",
+  "country": "India",
+  "description": "Spiritual city on the banks of the Ganges",
+  "type": "Religious",
+  "bestTimeToVisit": "October - March",
+  "travelInformation": "Airport, railway station and local transport available"
+}
+```
+
+The request does not contain `id` because the database generates it.
+
+---
+
+## 8.2 DestinationResponseDTO
+
+File:
+
+```text
+dto/destination/DestinationResponseDTO.java
+```
+
+```java
+package com.tripnest.backend.dto.destination;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class DestinationResponseDTO {
+
+    private Long id;
+    private String name;
+    private String country;
+    private String description;
+    private String type;
+    private String bestTimeToVisit;
+    private String travelInformation;
+}
+```
+
+### Purpose
+
+Response DTO represents data sent:
+
+```text
+Backend → Client
+```
+
+Using a Response DTO prevents the database Entity from being directly exposed through the API.
+
+The flow is:
+
+```text
+Request:
+JSON
+ ↓
+DestinationRequestDTO
+ ↓
+Service
+ ↓
+Destination Entity
+ ↓
+Repository
+ ↓
+PostgreSQL
+```
+
+Response:
+
+```text
+PostgreSQL
+ ↓
+Destination Entity
+ ↓
+Service
+ ↓
+DestinationResponseDTO
+ ↓
+Controller
+ ↓
+JSON
+```
+
+---
+
+# 9. Destination Service
+
+File:
+
+```text
+service/DestinationService.java
+```
+
+The Service contains the business/application logic and communicates with the Repository.
+
+The implemented CRUD methods are:
+
+```text
+createDestination()
+getAllDestinations()
+getDestinationById()
+updateDestination()
+deleteDestination()
+```
+
+### Create
+
+```java
+public DestinationResponseDTO createDestination(
+        DestinationRequestDTO request) {
+
+    Destination destination = new Destination();
+
+    destination.setName(request.getName());
+    destination.setCountry(request.getCountry());
+    destination.setDescription(request.getDescription());
+    destination.setType(request.getType());
+    destination.setBestTimeToVisit(request.getBestTimeToVisit());
+    destination.setTravelInformation(request.getTravelInformation());
+
+    Destination savedDestination =
+            destinationRepository.save(destination);
+
+    return convertToResponseDTO(savedDestination);
+}
+```
+
+Flow:
+
+```text
+Request DTO
+    ↓
+Destination Entity
+    ↓
+repository.save()
+    ↓
+Database
+    ↓
+Response DTO
+```
+
+### Get All
+
+`findAll()` comes automatically from `JpaRepository`.
+
+The entities are converted into Response DTOs before being returned.
+
+### Get By ID
+
+The Repository method:
+
+```java
+findById(id)
+```
+
+returns:
+
+```java
+Optional<Destination>
+```
+
+`Optional` represents:
+
+```text
+Destination exists      → value present
+Destination not found   → Optional.empty()
+```
+
+The Service converts the Entity into a Response DTO.
+
+### Update
+
+The existing destination is first found using its ID.
+
+If found:
+
+```text
+Find existing destination
+        ↓
+Update fields
+        ↓
+save()
+        ↓
+Database updated
+```
+
+If not found, a temporary `RuntimeException` is thrown.
+
+A proper custom `DestinationNotFoundException` can be introduced later when global exception handling is added.
+
+### Delete
+
+```java
+destinationRepository.deleteById(id);
+```
+
+removes the destination from PostgreSQL.
+
+---
+
+# 10. Destination Controller
+
+File:
+
+```text
+controller/DestinationController.java
+```
+
+Base URL:
+
+```text
+/api/destinations
+```
+
+The Controller exposes the REST APIs.
+
+## API endpoints
+
+| HTTP Method | Endpoint                 | Purpose              |
+| ----------- | ------------------------ | -------------------- |
+| POST        | `/api/destinations`      | Create destination   |
+| GET         | `/api/destinations`      | Get all destinations |
+| GET         | `/api/destinations/{id}` | Get one destination  |
+| PUT         | `/api/destinations/{id}` | Update destination   |
+| DELETE      | `/api/destinations/{id}` | Delete destination   |
+
+The Controller uses:
+
+```text
+@RequestBody
+```
+
+to convert incoming JSON into `DestinationRequestDTO`.
+
+It uses:
+
+```text
+@PathVariable
+```
+
+to obtain the destination ID from the URL.
+
+Example:
+
+```text
+/api/destinations/5
+                  ↑
+              PathVariable
+```
+
+---
+
+# 11. HTTP Response Status Codes
+
+The Controller uses `ResponseEntity` to control HTTP responses.
+
+```text
+200 OK
+```
+
+Used for successful create, read and update operations.
+
+```text
+404 Not Found
+```
+
+Used when the requested destination does not exist.
+
+```text
+204 No Content
+```
+
+Used after successful deletion.
+
+---
+
+# 12. Compilation Error Encountered
+
+During compilation:
+
+```text
+mvn clean compile
+```
+
+the following error occurred:
+
+```text
+cannot find symbol
+symbol: class Optional
+location: class DestinationService
+```
+
+### Cause
+
+`Optional` was used in the Service:
+
+```java
+Optional<Destination>
+```
+
+but the required Java import was missing.
+
+### Fix
+
+Added:
+
+```java
+import java.util.Optional;
+```
+
+After adding the import, the project compiled successfully.
+
+This was a Java import issue, not a Spring or database issue.
+
+---
+
+# 13. Postman API Testing
+
+All APIs were tested using Postman.
+
+JWT Bearer authentication was provided where required.
+
+---
+
+## 13.1 CREATE — POST
+
+Endpoint:
+
+```text
+POST http://localhost:8080/api/destinations
+```
+
+Authorization:
+
+```text
+Bearer <JWT token>
+```
+
+Body → raw → JSON:
+
+```json
+{
+  "name": "Varanasi",
+  "country": "India",
+  "description": "Spiritual city on the banks of the Ganges",
+  "type": "Religious",
+  "bestTimeToVisit": "October - March",
+  "travelInformation": "Airport, railway station and local transport available"
+}
+```
+
+Result:
+
+```text
+200 OK
+```
+
+The generated ID is returned in the Response DTO.
+
+The client does not send the ID.
+
+---
+
+## 13.2 Additional POST Test Data
+
+### Manali
+
+```json
+{
+  "name": "Manali",
+  "country": "India",
+  "description": "A scenic mountain destination in Himachal Pradesh known for snow-capped peaks and valleys",
+  "type": "Hill Station",
+  "bestTimeToVisit": "March - June",
+  "travelInformation": "Nearest airport is Bhuntar; buses and taxis are commonly available"
+}
+```
+
+### Goa
+
+```json
+{
+  "name": "Goa",
+  "country": "India",
+  "description": "A coastal destination known for beaches, Portuguese heritage, nightlife and seafood",
+  "type": "Beach",
+  "bestTimeToVisit": "November - February",
+  "travelInformation": "Goa has an international airport, railway stations and local taxis/buses"
+}
+```
+
+Other test records were also created for Jaipur, Haridwar and Rameswaram.
+
+---
+
+# 14. GET ALL — GET
+
+Endpoint:
+
+```text
+GET http://localhost:8080/api/destinations
+```
+
+Result:
+
+```text
+200 OK
+```
+
+The API successfully returned the list of stored destinations.
+
+Example records included:
+
+```text
+1 → Varanasi
+2 → Manali
+3 → Goa
+4 → bch
+5 → Jaipur
+6 → Haridwar
+7 → Rameswaram
+```
+
+The actual IDs depend on the database state and previously inserted/deleted records.
+
+---
+
+# 15. GET ONE — GET
+
+Endpoint:
+
+```text
+GET http://localhost:8080/api/destinations/1
+```
+
+Result:
+
+```text
+200 OK
+```
+
+Example:
+
+```json
+{
+  "id": 1,
+  "name": "Varanasi",
+  "country": "India",
+  "description": "Spiritual city on the banks of the Ganges",
+  "type": "Religious",
+  "bestTimeToVisit": "October - March",
+  "travelInformation": "Airport, railway station and local transport available"
+}
+```
+
+### Non-existing ID
+
+Endpoint:
+
+```text
+GET http://localhost:8080/api/destinations/999
+```
+
+Result:
+
+```text
+404 Not Found
+```
+
+This confirms the `Optional` handling and `ResponseEntity.notFound()` logic are working correctly.
+
+---
+
+# 16. UPDATE — PUT
+
+Endpoint:
+
+```text
+PUT http://localhost:8080/api/destinations/7
+```
+
+The destination with ID `7` was updated from the test destination to **Rameswaram**.
+
+Request:
+
+```json
+{
+  "name": "Rameswaram",
+  "country": "India",
+  "description": "A sacred island town off the Tamil Nadu coast, renowned for the historic Ramanathaswamy Temple, iconic long corridors, sacred water tanks (theerthams), and Pamban Bridge views",
+  "type": "Spiritual / Coastal",
+  "bestTimeToVisit": "October - March",
+  "travelInformation": "Nearest airport is Madurai Airport (around 175 km away), connected by rail and the iconic Pamban road/rail link across the Palk Strait, with frequent buses from major Tamil Nadu cities"
+}
+```
+
+Result:
+
+```text
+200 OK
+```
+
+Response:
+
+```json
+{
+  "id": 7,
+  "name": "Rameswaram",
+  "country": "India",
+  "description": "A sacred island town off the Tamil Nadu coast, renowned for the historic Ramanathaswamy Temple, iconic long corridors, sacred water tanks (theerthams), and Pamban Bridge views",
+  "type": "Spiritual / Coastal",
+  "bestTimeToVisit": "October - March",
+  "travelInformation": "Nearest airport is Madurai Airport (around 175 km away), connected by rail and the iconic Pamban road/rail link across the Palk Strait, with frequent buses from major Tamil Nadu cities"
+}
+```
+
+The ID remained `7`.
+
+### PostgreSQL verification
+
+```sql
+SELECT *
+FROM destination
+WHERE id = 7;
+```
+
+Result:
+
+```text
+id = 7
+name = Rameswaram
+country = India
+type = Spiritual / Coastal
+best_time_to_visit = October - March
+```
+
+This confirmed that the update was persisted in PostgreSQL.
+
+---
+
+# 17. DELETE — DELETE
+
+Endpoint:
+
+```text
+DELETE http://localhost:8080/api/destinations/8
+```
+
+Result:
+
+```text
+204 No Content
+```
+
+Before deletion:
+
+```sql
+SELECT *
+FROM destination
+WHERE id = 8;
+```
+
+Result:
+
+```text
+1 row
+```
+
+After deletion:
+
+```sql
+SELECT *
+FROM destination
+WHERE id = 8;
+```
+
+Result:
+
+```text
+0 rows
+```
+
+This confirms that the record was successfully deleted from PostgreSQL.
+
+### Verify through API
+
+After deletion:
+
+```text
+GET http://localhost:8080/api/destinations/8
+```
+
+Result:
+
+```text
+404 Not Found
+```
+
+This confirms both:
+
+```text
+Database deletion ✅
+API not-found handling ✅
+```
+
+---
+
+# 18. Final P4 CRUD Flow
+
+The complete implementation currently follows:
+
+```text
+                 CLIENT / POSTMAN
+                        │
+                        ↓
+              DestinationController
+                        │
+                        ↓
+             DestinationRequestDTO
+                        │
+                        ↓
+              DestinationService
+                        │
+                        ↓
+              Destination Entity
+                        │
+                        ↓
+             DestinationRepository
+                        │
+                        ↓
+                  PostgreSQL
+                        │
+                        ↓
+              Destination Entity
+                        │
+                        ↓
+             DestinationResponseDTO
+                        │
+                        ↓
+                     CLIENT
+```
+
+This follows the layered architecture used throughout TripNest.
+
+---
+
+# 19. Current M2 P4 Status
+
+```text
+Destination Entity             ✅
+Destination Repository         ✅
+Destination Service            ✅
+Destination Request DTO        ✅
+Destination Response DTO       ✅
+Destination Controller         ✅
+
+CREATE API                     ✅
+GET ALL API                    ✅
+GET BY ID API                  ✅
+UPDATE API                     ✅
+DELETE API                     ✅
+
+Postman testing                ✅
+PostgreSQL verification        ✅
+JWT Bearer authentication      ✅
+404 handling                   ✅
+204 delete handling            ✅
+```
+
+---
+
+# 20. Next P4 Phase
+
+The CRUD foundation is complete.
+
+The next phase will implement the actual destination-focused functionality required by the project:
+
+```text
+Destination
+│
+├── Destination Details
+│
+├── Attractions
+│
+├── Travel Guides
+│
+└── Relevant Travel Information
+```
+
+The relationships and data model will be designed before implementation.
+
+Potential future relationship:
+
+```text
+Destination 1 ───────── N Attraction
+
+Destination 1 ───────── N TravelGuide
+```
+
+These will be implemented carefully using JPA relationships, DTOs and REST APIs.
+
+The goal is to keep P4 professional enough for real-world/SDE1 discussion while avoiding unnecessary over-engineering.
 
 
 
