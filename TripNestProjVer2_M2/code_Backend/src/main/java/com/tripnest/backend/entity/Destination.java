@@ -1,4 +1,4 @@
-package com.tripnest.entity.destination;
+package com.tripnest.backend.entity;
 
 // JPA annotation used to mark this class as a database entity.
 import jakarta.persistence.Entity;
